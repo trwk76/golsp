@@ -1,299 +1,140 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
+	"sort"
+	"strings"
+
+	golang "github.com/trwk76/go-code/go"
 )
 
-func LoadModel() MetaModel {
-	var mdl MetaModel
-
-	raw, err := os.ReadFile("metaModel.json")
-	if err != nil {
-		panic(fmt.Errorf("error reading metaModel.json file: %s", err.Error()))
+func ModelFromData(data MetaModel) *Model {
+	res := &Model{
+		types: make(map[string]ModelType),
 	}
 
-	if err := json.Unmarshal(raw, &mdl); err != nil {
-		panic(fmt.Errorf("error unmarshaling metaModel.json: %s", err.Error()))
+	for _, itm := range data.Structures {
+		res.types[itm.Name] = &StructType{
+			mdl:  res,
+			data: itm,
+		}
 	}
 
-	return mdl
+	for _, itm := range data.Enumerations {
+		res.types[itm.Name] = &EnumType{
+			mdl:  res,
+			data: itm,
+		}
+	}
+
+	for _, itm := range data.TypeAliases {
+		res.types[itm.Name] = &AliasType{
+			mdl:  res,
+			data: itm,
+		}
+	}
+
+	return res
 }
 
 type (
-	MetaModel struct {
-		MetaData      MetaData       `json:"metaData"`
-		Requests      []Request      `json:"requests"`
-		Notifications []Notification `json:"notifications"`
-		Structures    []Structure    `json:"structures"`
-		Enumerations  []Enumeration  `json:"enumerations"`
-		TypeAliases   []TypeAlias    `json:"typeAliases"`
+	Model struct {
+		types map[string]ModelType
 	}
 
-	MetaData struct {
-		Version string `json:"version"`
+	ModelType interface {
+		golang() golang.TypeDecl
 	}
 
-	Request struct {
-		Deprecated          string           `json:"deprecated,omitempty"`
-		Documentation       string           `json:"documentation,omitempty"`
-		ErrorData           *Type            `json:"errorData,omitempty"`
-		MessageDirection    MessageDirection `json:"messageDirection"`
-		Method              string           `json:"method"`
-		Params              OneOrMore[Type]  `json:"params,omitempty"`
-		PartialResult       *Type            `json:"partialResult,omitempty"`
-		Proposed            bool             `json:"proposed,omitempty"`
-		RegistrationMethod  string           `json:"registrationMethod,omitempty"`
-		RegistrationOptions *Type            `json:"registrationOptions,omitempty"`
-		Result              Type             `json:"result"`
-		Since               string           `json:"since,omitempty"`
+	StructType struct {
+		mdl  *Model
+		data Structure
 	}
 
-	Notification struct {
-		Deprecated          string           `json:"deprecated,omitempty"`
-		Documentation       string           `json:"documentation,omitempty"`
-		MessageDirection    MessageDirection `json:"messageDirection"`
-		Method              string           `json:"method"`
-		Params              OneOrMore[Type]  `json:"params,omitempty"`
-		Proposed            bool             `json:"proposed,omitempty"`
-		RegistrationMethod  string           `json:"registrationMethod,omitempty"`
-		RegistrationOptions *Type            `json:"registrationOptions,omitempty"`
-		Since               string           `json:"since,omitempty"`
+	EnumType struct {
+		mdl  *Model
+		data Enumeration
 	}
 
-	MessageDirection string
-
-	Structure struct {
-		Deprecated    string     `json:"deprecated,omitempty"`
-		Documentation string     `json:"documentation,omitempty"`
-		Extends       []Type     `json:"extends,omitempty"`
-		Mixins        []Type     `json:"mixins,omitempty"`
-		Name          string     `json:"name"`
-		Properties    []Property `json:"properties"`
-		Proposed      bool       `json:"proposed,omitempty"`
-		Since         string     `json:"since,omitempty"`
+	AliasType struct {
+		mdl  *Model
+		data TypeAlias
 	}
-
-	Property struct {
-		Deprecated    string `json:"deprecated,omitempty"`
-		Documentation string `json:"documentation,omitempty"`
-		Name          string `json:"name"`
-		Optional      bool   `json:"optional,omitempty"`
-		Proposed      bool   `json:"proposed,omitempty"`
-		Since         string `json:"since,omitempty"`
-		Type          Type   `json:"type"`
-	}
-
-	Enumeration struct {
-		Deprecated           string             `json:"deprecated,omitempty"`
-		Documentation        string             `json:"documentation,omitempty"`
-		Name                 string             `json:"name"`
-		Proposed             bool               `json:"proposed,omitempty"`
-		Since                string             `json:"since,omitempty"`
-		SupportsCustomValues bool               `json:"supportsCustomValues,omitempty"`
-		Type                 Type               `json:"type"`
-		Values               []EnumerationEntry `json:"values"`
-	}
-
-	EnumerationEntry struct {
-		Deprecated    string          `json:"deprecated,omitempty"`
-		Documentation string          `json:"documentation,omitempty"`
-		Name          string          `json:"name"`
-		Proposed      bool            `json:"proposed,omitempty"`
-		Since         string          `json:"since,omitempty"`
-		Value         json.RawMessage `json:"value"`
-	}
-
-	TypeAlias struct {
-		Deprecated    string `json:"deprecated,omitempty"`
-		Documentation string `json:"documentation,omitempty"`
-		Name          string `json:"name"`
-		Proposed      bool   `json:"proposed,omitempty"`
-		Since         string `json:"since,omitempty"`
-		Type          Type   `json:"type"`
-	}
-
-	Type struct {
-		Impl TypeImpl
-	}
-
-	TypeKind string
-
-	TypeDisc struct {
-		Kind TypeKind `json:"kind"`
-	}
-
-	TypeImpl interface {
-	}
-
-	AndType struct {
-		TypeDisc
-		Items []Type `json:"items"`
-	}
-
-	ArrayType struct {
-		TypeDisc
-		Element Type `json:"element"`
-	}
-
-	BaseType struct {
-		TypeDisc
-		Name string `json:"name"`
-	}
-
-	BooleanLiteralType struct {
-		TypeDisc
-		Value bool `json:"value"`
-	}
-
-	IntegerLiteralType struct {
-		TypeDisc
-		Value int64 `json:"value"`
-	}
-
-	MapType struct {
-		TypeDisc
-		Key   Type `json:"key"`
-		Value Type `json:"value"`
-	}
-
-	OrType struct {
-		TypeDisc
-		Items []Type `json:"items"`
-	}
-
-	ReferenceType struct {
-		TypeDisc
-		Name string `json:"name"`
-	}
-
-	StringLiteralType struct {
-		TypeDisc
-		Value string `json:"value"`
-	}
-
-	StructLiteralType struct {
-		TypeDisc
-		Value StructLiteral `json:"value"`
-	}
-
-	TupleType struct {
-		TypeDisc
-		Items []Type `json:"items"`
-	}
-
-	StructLiteral struct {
-		Deprecated    string     `json:"deprecated,omitempty"`
-		Documentation string     `json:"documentation,omitempty"`
-		Properties    []Property `json:"properties"`
-		Proposed      bool       `json:"proposed,omitempty"`
-		Since         string     `json:"since,omitempty"`
-	}
-
-	OneOrMore[T any] []T
 )
 
-const (
-	ClientToServer MessageDirection = "clientToServer"
-	ServerToClient MessageDirection = "serverToClient"
-	Both           MessageDirection = "both"
-)
+func (m *Model) goTypes() golang.TypeDecls {
+	res := make(golang.TypeDecls, 0)
 
-const (
-	TypeBase           TypeKind = "base"
-	TypeReference      TypeKind = "reference"
-	TypeArray          TypeKind = "array"
-	TypeMap            TypeKind = "map"
-	TypeAnd            TypeKind = "and"
-	TypeOr             TypeKind = "or"
-	TypeTuple          TypeKind = "tuple"
-	TypeLiteral        TypeKind = "literal"
-	TypeStringLiteral  TypeKind = "stringLiteral"
-	TypeIntegerLiteral TypeKind = "integerLiteral"
-	TypeBooleanLiteral TypeKind = "booleanLiteral"
-)
-
-func (t *Type) UnmarshalJSON(raw []byte) error {
-	var (
-		disc TypeDisc
-		impl TypeImpl
-	)
-
-	if err := json.Unmarshal(raw, &disc); err != nil {
-		return err
+	for _, typ := range m.types {
+		res = append(res, typ.golang())
 	}
 
-	impl = disc.newImpl()
+	sort.Slice(res, func(i, j int) bool {
+		return res[i].ID < res[j].ID
+	})
 
-	if err := json.Unmarshal(raw, &impl); err != nil {
-		return err
-	}
-
-	t.Impl = impl
-	return nil
+	return res
 }
 
-func (d TypeDisc) newImpl() TypeImpl {
-	switch d.Kind {
-	case TypeBase:
-		return &BaseType{}
-	case TypeReference:
-		return &ReferenceType{}
-	case TypeArray:
-		return &ArrayType{}
-	case TypeMap:
-		return &MapType{}
-	case TypeAnd:
-		return &AndType{}
-	case TypeOr:
-		return &OrType{}
-	case TypeTuple:
-		return &TupleType{}
-	case TypeLiteral:
-		return &StructLiteralType{}
-	case TypeStringLiteral:
-		return &StringLiteralType{}
-	case TypeIntegerLiteral:
-		return &IntegerLiteralType{}
-	case TypeBooleanLiteral:
-		return &BooleanLiteralType{}
+func (t *StructType) golang() golang.TypeDecl {
+	bases := make([]golang.Type, len(t.data.Extends))
+
+	for idx, ext := range t.data.Extends {
+		if ref, ok := ext.Impl.(*ReferenceType); ok {
+			bases[idx] = golang.Symbol{ID: golang.ID(ref.Name)}
+		} else {
+			panic(fmt.Errorf("struct %s: base #%d not a referrnce", t.data.Name, idx))
+		}
 	}
 
-	panic(fmt.Errorf("type kind '%s' is not supported", d.Kind))
+	return golang.TypeDecl{
+		Comment: comment(t.data.Name, t.data.Documentation),
+		ID:      golang.ID(t.data.Name),
+		Spec:    golang.StructType{
+			Bases: bases,
+		},
+	}
 }
 
-func (v *OneOrMore[T]) UnmarshalJSON(raw []byte) error {
-	var (
-		arr []T
-		one T
-	)
+func (t *EnumType) golang() golang.TypeDecl {
+	return golang.TypeDecl{
+		Comment: comment(t.data.Name, t.data.Documentation),
+		ID:      golang.ID(t.data.Name),
+		Spec:    golang.String,
+	}
+}
 
-	if err := json.Unmarshal(raw, &arr); err == nil {
-		*v = OneOrMore[T](arr)
-		return nil
+func (t *AliasType) golang() golang.TypeDecl {
+	return golang.TypeDecl{
+		Comment: comment(t.data.Name, t.data.Documentation),
+		ID:      golang.ID(t.data.Name),
+		Spec:    golang.TypeAlias{Target: golang.String},
+	}
+}
+
+func comment(name string, doc string) golang.Comment {
+	buf := strings.Builder{}
+
+	fmt.Fprintf(&buf, " %s\n", name)
+
+	lines := strings.Split(strings.ReplaceAll(doc, "\r\n", "\n"), "\n")
+
+	for idx, line := range lines {
+		if len(line) > 0 {
+			buf.WriteByte(' ')
+			buf.WriteString(line)
+		}
+
+		if idx < len(lines) - 1 {
+			buf.WriteByte('\n')
+		}
 	}
 
-	if err := json.Unmarshal(raw, &one); err != nil {
-		return err
-	}
-
-	*v = OneOrMore[T]{one}
-	return nil
+	return golang.Comment(buf.String())
 }
 
 var (
-	_ TypeImpl         = (*AndType)(nil)
-	_ TypeImpl         = (*ArrayType)(nil)
-	_ TypeImpl         = (*BaseType)(nil)
-	_ TypeImpl         = (*BooleanLiteralType)(nil)
-	_ TypeImpl         = (*IntegerLiteralType)(nil)
-	_ TypeImpl         = (*MapType)(nil)
-	_ TypeImpl         = (*OrType)(nil)
-	_ TypeImpl         = (*ReferenceType)(nil)
-	_ TypeImpl         = (*StringLiteralType)(nil)
-	_ TypeImpl         = (*StructLiteralType)(nil)
-	_ TypeImpl         = (*TupleType)(nil)
-	_ json.Unmarshaler = (*Type)(nil)
-	_ json.Unmarshaler = (*OneOrMore[string])(nil)
+	_ ModelType = (*StructType)(nil)
+	_ ModelType = (*EnumType)(nil)
+	_ ModelType = (*AliasType)(nil)
 )
