@@ -24,15 +24,23 @@ func main() {
 		}
 
 		for _, prop := range t.Properties {
+			var typ g.Type
+
 			tag := prop.Name
 
 			if prop.Optional {
 				tag += ",omitempty"
 			}
 
+			if ref, ok := prop.Type.Impl.(*ReferenceType); ok {
+				typ = g.Symbol{ID: g.ID(ref.Name)}
+			} else {
+				typ = g.String
+			}
+
 			flds = append(flds, g.StructField{
 				ID:   g.ID(code.IDToPascal(prop.Name)),
-				Type: g.String,
+				Type: typ,
 				Tags: g.Tags{{
 					Name:  "json",
 					Value: tag,
