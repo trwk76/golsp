@@ -97,12 +97,17 @@ type (
 	}
 
 	EnumerationEntry struct {
-		Deprecated    string          `json:"deprecated,omitempty"`
-		Documentation string          `json:"documentation,omitempty"`
-		Name          string          `json:"name"`
-		Proposed      bool            `json:"proposed,omitempty"`
-		Since         string          `json:"since,omitempty"`
-		Value         json.RawMessage `json:"value"`
+		Deprecated    string           `json:"deprecated,omitempty"`
+		Documentation string           `json:"documentation,omitempty"`
+		Name          string           `json:"name"`
+		Proposed      bool             `json:"proposed,omitempty"`
+		Since         string           `json:"since,omitempty"`
+		Value         EnumerationValue `json:"value"`
+	}
+
+	EnumerationValue struct {
+		String string
+		Number float64
 	}
 
 	TypeAlias struct {
@@ -214,6 +219,14 @@ const (
 	TypeBooleanLiteral TypeKind = "booleanLiteral"
 )
 
+func (v *EnumerationValue) UnmarshalJSON(raw []byte) error {
+	if err := json.Unmarshal(raw, &v.Number); err == nil {
+		return nil
+	}
+
+	return json.Unmarshal(raw, &v.String)
+}
+
 func (t *Type) UnmarshalJSON(raw []byte) error {
 	var (
 		disc TypeDisc
@@ -294,6 +307,7 @@ var (
 	_ TypeImpl         = (*StringLiteralType)(nil)
 	_ TypeImpl         = (*StructLiteralType)(nil)
 	_ TypeImpl         = (*TupleType)(nil)
+	_ json.Unmarshaler = (*EnumerationValue)(nil)
 	_ json.Unmarshaler = (*Type)(nil)
 	_ json.Unmarshaler = (*OneOrMore[string])(nil)
 )

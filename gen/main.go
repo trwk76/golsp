@@ -13,7 +13,10 @@ func main() {
 		Package: g.PkgName("lsp"),
 	}
 
-	unit.Decls = append(unit.Decls, mdl.goTypes())
+	unit.Decls = append(
+		unit.Decls,
+		mdl.decls()...,
+	)
 
 	code.WriteFile("../model_gen.go", "\t", func(w *code.Writer) { unit.Write(w) })
 }
